@@ -6,39 +6,35 @@ local mainUI = player:WaitForChild("PlayerGui"):WaitForChild("MainUI")
 local amb = mainUI:WaitForChild("Amb")
 local level1 = mainUI:WaitForChild("Level1")
 
--- Disable Amb
+-- Keep Amb disabled
 local function stopAmb()
-	if amb:IsA("Sound") and amb.IsPlaying then
+	if amb.IsPlaying then
 		amb:Stop()
 	end
 end
 
--- Keep Level1 running
-local function playLevel1()
-	if level1:IsA("Sound") then
-		level1.Looped = true
-		level1.Volume = 1
-		
-		if not level1.IsPlaying then
-			level1:Play()
-		end
-	end
-end
-
--- Initial setup
 stopAmb()
-playLevel1()
 
--- Watch Amb
 amb:GetPropertyChangedSignal("Playing"):Connect(function()
 	stopAmb()
 end)
 
--- Watch Level1
-level1:GetPropertyChangedSignal("Playing"):Connect(function()
-	playLevel1()
-end)
+-- Keep Level1 playing at full volume
+local function forceLevel1()
+	level1.Volume = 1
+	level1.Looped = true
+
+	if not level1.IsPlaying then
+		level1:Play()
+	end
+end
+
+forceLevel1()
 
 level1:GetPropertyChangedSignal("Volume"):Connect(function()
-	level1.Volume = 1
+	forceLevel1()
+end)
+
+level1:GetPropertyChangedSignal("Playing"):Connect(function()
+	forceLevel1()
 end)
