@@ -81,22 +81,16 @@ level1:GetPropertyChangedSignal("Playing"):Connect(function()
 	forceLevel1()
 end)
 
--- Keep Level2 playing
-local function forceLevel2()
-	level2.Volume = 1
-	level2.Looped = true
+local level2 = mainUI:WaitForChild("Level2")
 
-	if not level2.IsPlaying then
-		level2:Play()
+local function stopLevel2()
+	if level2.IsPlaying then
+		level2:Stop()
 	end
 end
 
-forceLevel2()
-
-level2:GetPropertyChangedSignal("Volume"):Connect(function()
-	forceLevel2()
-end)
+stopLevel2()
 
 level2:GetPropertyChangedSignal("Playing"):Connect(function()
-	forceLevel2()
+	stopLevel2()
 end)
