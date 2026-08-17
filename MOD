@@ -1,0 +1,58 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local mainUI = player:WaitForChild("PlayerGui"):WaitForChild("MainUI")
+
+local amb = mainUI:WaitForChild("Amb")
+local level1 = mainUI:WaitForChild("Level1")
+
+-- Disable Amb
+local function stopAmb()
+	if amb:IsA("Sound") and amb.IsPlaying then
+		amb:Stop()
+	end
+end
+
+-- Keep Level1 running
+local function playLevel1()
+	if level1:IsA("Sound") and not level1.IsPlaying then
+		level1.Looped = true
+		level1:Play()
+	end
+end
+
+-- Initial setup
+stopAmb()
+playLevel1()
+
+-- Watch Amb
+amb:GetPropertyChangedSignal("Playing"):Connect(function()
+	stopAmb()
+end)
+
+-- Watch Level1
+level1:GetPropertyChangedSignal("Playing"):Connect(function()
+	playLevel1()
+end)
+
+-- In case the sounds are recreated
+mainUI.DescendantAdded:Connect(function(obj)
+	if obj:IsA("Sound") then
+		if obj.Name == "Amb" then
+			task.wait()
+			obj:Stop()
+			obj:GetPropertyChangedSignal("Playing"):Connect(function()
+				obj:Stop()
+			end)
+		elseif obj.Name == "Level1" then
+			task.wait()
+			obj.Looped = true
+			obj:Play()
+			obj:GetPropertyChangedSignal("Playing"):Connect(function()
+				if not obj.IsPlaying then
+					obj:Play()
+				end
+			end)
+		end
+	end
+end)
