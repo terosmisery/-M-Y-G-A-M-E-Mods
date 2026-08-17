@@ -38,3 +38,65 @@ end)
 level1:GetPropertyChangedSignal("Playing"):Connect(function()
 	forceLevel1()
 end)
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local mainUI = player:WaitForChild("PlayerGui"):WaitForChild("MainUI")
+
+local amb = mainUI:WaitForChild("Amb")
+local level1 = mainUI:WaitForChild("Level1")
+local level2 = mainUI:WaitForChild("Level2")
+
+-- Keep Amb disabled
+local function stopAmb()
+	if amb.IsPlaying then
+		amb:Stop()
+	end
+end
+
+stopAmb()
+
+amb:GetPropertyChangedSignal("Playing"):Connect(function()
+	stopAmb()
+end)
+
+-- Keep Level1 playing
+local function forceLevel1()
+	level1.Volume = 1
+	level1.Looped = true
+
+	if not level1.IsPlaying then
+		level1:Play()
+	end
+end
+
+forceLevel1()
+
+level1:GetPropertyChangedSignal("Volume"):Connect(function()
+	forceLevel1()
+end)
+
+level1:GetPropertyChangedSignal("Playing"):Connect(function()
+	forceLevel1()
+end)
+
+-- Keep Level2 playing
+local function forceLevel2()
+	level2.Volume = 1
+	level2.Looped = true
+
+	if not level2.IsPlaying then
+		level2:Play()
+	end
+end
+
+forceLevel2()
+
+level2:GetPropertyChangedSignal("Volume"):Connect(function()
+	forceLevel2()
+end)
+
+level2:GetPropertyChangedSignal("Playing"):Connect(function()
+	forceLevel2()
+end)
