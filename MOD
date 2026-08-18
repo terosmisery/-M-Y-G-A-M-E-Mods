@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
@@ -117,7 +116,7 @@ local guiLockConnection = RunService.Heartbeat:Connect(function()
 end)
 
 --==================================================
--- BLOCK MOUSE / TOUCH INPUT
+-- INPUT BLOCK
 --==================================================
 
 local INPUT_LOCK_NAME = "C9HZZ_IntroInputLock"
@@ -266,26 +265,55 @@ say("Initialization complete.", 2)
 say("This is a c9hzz mod.", 3)
 
 --==================================================
--- ENJOY EFFECT SETUP
+-- ENJOY EFFECT OBJECTS
 --==================================================
 
 local head = layer1Group:WaitForChild("Head")
 local eyeLabel = head:WaitForChild("EyeLabel")
 local secretLabel = eyeLabel:WaitForChild("SecretLabel")
 
-local vignetteLabel = baseFrame:WaitForChild("VignetteLabel")
-local staticLabel = baseFrame:WaitForChild("StaticLabel")
+local vignetteLabel =
+	baseFrame:WaitForChild("VignetteLabel")
+
+local staticLabel =
+	baseFrame:WaitForChild("StaticLabel")
 
 --==================================================
--- SAVE EFFECT STATES
+-- COLLECT EFFECT GUI OBJECTS
 --==================================================
 
-local savedEffects = {}
+local effectObjects = {}
 
-local function saveGuiObject(obj)
-	if not obj:IsA("GuiObject") then
-		return
+local function addEffectObject(obj)
+	if obj:IsA("GuiObject") then
+		table.insert(effectObjects, obj)
 	end
+end
+
+-- SecretLabel
+addEffectObject(secretLabel)
+
+-- VignetteLabel and its descendants
+addEffectObject(vignetteLabel)
+
+for _, obj in ipairs(vignetteLabel:GetDescendants()) do
+	addEffectObject(obj)
+end
+
+-- StaticLabel and ALL of its descendants
+addEffectObject(staticLabel)
+
+for _, obj in ipairs(staticLabel:GetDescendants()) do
+	addEffectObject(obj)
+end
+
+--==================================================
+-- SAVE ORIGINAL STATE
+--==================================================
+
+local originalStates = {}
+
+for _, obj in ipairs(effectObjects) do
 
 	local state = {
 		Visible = obj.Visible,
@@ -300,59 +328,50 @@ local function saveGuiObject(obj)
 		state.TextTransparency = obj.TextTransparency
 	end
 
-	savedEffects[obj] = state
-end
-
-saveGuiObject(secretLabel)
-saveGuiObject(vignetteLabel)
-saveGuiObject(staticLabel)
-
-for _, obj in ipairs(staticLabel:GetDescendants()) do
-	saveGuiObject(obj)
+	originalStates[obj] = state
 end
 
 --==================================================
--- SHOW EFFECTS
+-- MAKE EFFECTS FULLY VISIBLE
 --==================================================
 
-local function setEffectTransparency(obj, value)
+local function prepareEffects()
 
-	if obj:IsA("GuiObject") then
-		obj.BackgroundTransparency = value
-	end
+	for _, obj in ipairs(effectObjects) do
 
-	if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-		obj.ImageTransparency = value
-	end
-
-	if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-		obj.TextTransparency = value
-	end
-end
-
-local function makeEffectsVisible()
-
-	for obj in pairs(savedEffects) do
 		if obj and obj.Parent then
+
 			obj.Visible = true
-			setEffectTransparency(obj, 1)
+
+			-- Explicitly force backgrounds to 0.
+			obj.BackgroundTransparency = 0
+
+			if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+				obj.ImageTransparency = 0
+			end
+
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+				obj.TextTransparency = 0
+			end
 		end
 	end
 end
 
+--==================================================
+-- FADE EFFECTS IN
+--==================================================
+
 local function fadeEffectsIn()
 
-	for obj in pairs(savedEffects) do
+	for _, obj in ipairs(effectObjects) do
 
 		if obj and obj.Parent then
 
 			obj.Visible = true
 
-			local properties = {}
-
-			if obj:IsA("GuiObject") then
-				properties.BackgroundTransparency = 0
-			end
+			local properties = {
+				BackgroundTransparency = 0
+			}
 
 			if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
 				properties.ImageTransparency = 0
@@ -375,40 +394,45 @@ local function fadeEffectsIn()
 	end
 end
 
+--==================================================
+-- FADE EFFECTS OUT TO ORIGINAL STATE
+--==================================================
+
 local function fadeEffectsOut()
 
-	local tweens = {}
-
-	for obj in pairs(savedEffects) do
+	for _, obj in ipairs(effectObjects) do
 
 		if obj and obj.Parent then
 
-			local properties = {}
+			local original = originalStates[obj]
 
-			if obj:IsA("GuiObject") then
-				properties.BackgroundTransparency = 1
+			if original then
+
+				local properties = {
+					BackgroundTransparency =
+						original.BackgroundTransparency
+				}
+
+				if original.ImageTransparency ~= nil then
+					properties.ImageTransparency =
+						original.ImageTransparency
+				end
+
+				if original.TextTransparency ~= nil then
+					properties.TextTransparency =
+						original.TextTransparency
+				end
+
+				TweenService:Create(
+					obj,
+					TweenInfo.new(
+						1,
+						Enum.EasingStyle.Sine,
+						Enum.EasingDirection.In
+					),
+					properties
+				):Play()
 			end
-
-			if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-				properties.ImageTransparency = 1
-			end
-
-			if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-				properties.TextTransparency = 1
-			end
-
-			local tween = TweenService:Create(
-				obj,
-				TweenInfo.new(
-					1,
-					Enum.EasingStyle.Sine,
-					Enum.EasingDirection.In
-				),
-				properties
-			)
-
-			table.insert(tweens, tween)
-			tween:Play()
 		end
 	end
 
@@ -416,72 +440,67 @@ local function fadeEffectsOut()
 end
 
 --==================================================
--- BASE FRAME ZOOM
+-- UISCALE ZOOM
 --==================================================
 
-local originalSize = baseFrame.Size
-local originalPosition = baseFrame.Position
+local zoomScale = baseFrame:FindFirstChild("C9HZZEnjoyScale")
 
-local zoomSize = UDim2.new(
-	originalSize.X.Scale * 1.035,
-	originalSize.X.Offset * 1.035,
-	originalSize.Y.Scale * 1.035,
-	originalSize.Y.Offset * 1.035
-)
+local createdScale = false
 
-local zoomPosition = UDim2.new(
-	originalPosition.X.Scale - (zoomSize.X.Scale - originalSize.X.Scale) / 2,
-	originalPosition.X.Offset - (zoomSize.X.Offset - originalSize.X.Offset) / 2,
-	originalPosition.Y.Scale - (zoomSize.Y.Scale - originalSize.Y.Scale) / 2,
-	originalPosition.Y.Offset - (zoomSize.Y.Offset - originalSize.Y.Offset) / 2
-)
+if not zoomScale then
+	zoomScale = Instance.new("UIScale")
+	zoomScale.Name = "C9HZZEnjoyScale"
+	zoomScale.Scale = 1
+	zoomScale.Parent = baseFrame
+	createdScale = true
+end
+
+local originalScale = zoomScale.Scale
 
 --==================================================
 -- ENJOY
 --==================================================
 
-makeEffectsVisible()
+prepareEffects()
 
 dialogueLabel.AutoLocalize = false
 dialogueLabel.Text = "Enjoy."
 dialogueLabel.Parent.Visible = true
 
--- Fade effects in
+-- Fade effects into full visibility.
 fadeEffectsIn()
 
--- Slight zoom in
+-- Slight zoom in.
 local zoomIn = TweenService:Create(
-	baseFrame,
+	zoomScale,
 	TweenInfo.new(
 		1.2,
 		Enum.EasingStyle.Sine,
 		Enum.EasingDirection.Out
 	),
 	{
-		Size = zoomSize,
-		Position = zoomPosition
+		Scale = originalScale * 1.05
 	}
 )
 
 zoomIn:Play()
 
--- Keep Enjoy visible for 5 seconds
+-- Keep Enjoy and the effects active for 5 seconds.
 task.wait(5)
 
--- Fade effects out
+-- Fade effects back toward their original transparency.
 fadeEffectsOut()
 
--- Zoom back to original
+-- Zoom back to the original scale.
 local zoomOut = TweenService:Create(
-	baseFrame,
+	zoomScale,
 	TweenInfo.new(
 		1.2,
 		Enum.EasingStyle.Sine,
 		Enum.EasingDirection.InOut
 	),
 	{
-		Size = originalSize,
-		Position = originalPosition
+		Scale = originalScale
 	}
 )
 
@@ -489,28 +508,38 @@ zoomOut:Play()
 zoomOut.Completed:Wait()
 
 --==================================================
--- RESTORE EFFECT STATES
+-- RESTORE ORIGINAL EFFECT STATES
 --==================================================
 
-for obj, state in pairs(savedEffects) do
+for obj, state in pairs(originalStates) do
 
 	if obj and obj.Parent then
 
 		obj.Visible = state.Visible
-		obj.BackgroundTransparency = state.BackgroundTransparency
+		obj.BackgroundTransparency =
+			state.BackgroundTransparency
 
 		if state.ImageTransparency ~= nil then
-			obj.ImageTransparency = state.ImageTransparency
+			obj.ImageTransparency =
+				state.ImageTransparency
 		end
 
 		if state.TextTransparency ~= nil then
-			obj.TextTransparency = state.TextTransparency
+			obj.TextTransparency =
+				state.TextTransparency
 		end
 	end
 end
 
 dialogueLabel.Text = ""
 dialogueLabel.Parent.Visible = false
+
+-- Remove the temporary UIScale if we created it.
+if createdScale and zoomScale then
+	zoomScale:Destroy()
+else
+	zoomScale.Scale = originalScale
+end
 
 --==================================================
 -- UNLOCK
