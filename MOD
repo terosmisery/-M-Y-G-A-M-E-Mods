@@ -21,7 +21,8 @@ local baseFrame =
 		:WaitForChild("BaseHolder")
 		:WaitForChild("BaseFrame")
 
-local layer1Group = baseFrame:WaitForChild("Layer1Group")
+local layer1Group =
+	baseFrame:WaitForChild("Layer1Group")
 
 local dialogueLabel =
 	layer1Group:FindFirstChild("DialogueLabel", true)
@@ -114,25 +115,31 @@ end
 
 enforceGuiLock()
 
-local guiLockConnection = RunService.Heartbeat:Connect(function()
+local guiLockConnection =
+	RunService.Heartbeat:Connect(function()
 
-	if interactionLocked then
-		enforceGuiLock()
-	end
-end)
+		if interactionLocked then
+			enforceGuiLock()
+		end
+
+	end)
 
 --==================================================
 -- BLOCK MOUSE / TOUCH / GAMEPAD
 --==================================================
 
-local INPUT_LOCK_NAME = "C9HZZ_IntroInputLock"
+local INPUT_LOCK_NAME =
+	"C9HZZ_IntroInputLock"
 
 ContextActionService:BindActionAtPriority(
 	INPUT_LOCK_NAME,
+
 	function()
 		return Enum.ContextActionResult.Sink
 	end,
+
 	false,
+
 	Enum.ContextActionPriority.High.Value,
 
 	Enum.UserInputType.MouseButton1,
@@ -184,6 +191,7 @@ local function say(text, duration)
 					}
 				}
 			},
+
 			false,
 			duration,
 			characterVoice
@@ -220,46 +228,57 @@ say("Starting Level 1 audio.", 2)
 level1.Volume = 0
 level1.PlaybackSpeed = 1
 level1.Looped = true
+
 level1:Play()
 
-say("Slowing Level 1 audio down to zero point five.", 2)
-
-local speedTween = TweenService:Create(
-	level1,
-	TweenInfo.new(
-		3,
-		Enum.EasingStyle.Sine,
-		Enum.EasingDirection.Out
-	),
-	{
-		PlaybackSpeed = 0.5
-	}
+say(
+	"Slowing Level 1 audio down to zero point five.",
+	2
 )
 
-local volumeTween = TweenService:Create(
-	level1,
-	TweenInfo.new(
-		2,
-		Enum.EasingStyle.Sine,
-		Enum.EasingDirection.Out
-	),
-	{
-		Volume = 1
-	}
-)
+local speedTween =
+	TweenService:Create(
+		level1,
+
+		TweenInfo.new(
+			3,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.Out
+		),
+
+		{
+			PlaybackSpeed = 0.5
+		}
+	)
+
+local volumeTween =
+	TweenService:Create(
+		level1,
+
+		TweenInfo.new(
+			2,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.Out
+		),
+
+		{
+			Volume = 1
+		}
+	)
 
 speedTween:Play()
 volumeTween:Play()
 
 speedTween.Completed:Wait()
 
-say("Level 1 audio is now playing at zero point five speed.", 2)
+say(
+	"Level 1 audio is now playing at zero point five speed.",
+	2
+)
 
 --==================================================
 -- LEVEL 2
 --==================================================
-
-say("Level 2 audio is disabled.", 2)
 
 level2:Stop()
 level2.Volume = 0
@@ -273,7 +292,7 @@ say("Initialization complete.", 2)
 say("This is a c9hzz mod.", 3)
 
 --==================================================
--- ENJOY EFFECT OBJECTS
+-- ENJOY OBJECTS
 --==================================================
 
 local head =
@@ -292,80 +311,76 @@ local staticLabel =
 	baseFrame:WaitForChild("StaticLabel")
 
 --==================================================
+-- COLLECT EFFECT OBJECTS
+--==================================================
+
+local effectObjects = {}
+
+local function addEffect(obj)
+
+	if obj:IsA("GuiObject") then
+		table.insert(effectObjects, obj)
+	end
+end
+
+-- SecretLabel
+addEffect(secretLabel)
+
+-- VignetteLabel
+addEffect(vignetteLabel)
+
+for _, obj in ipairs(vignetteLabel:GetDescendants()) do
+	addEffect(obj)
+end
+
+-- StaticLabel
+addEffect(staticLabel)
+
+for _, obj in ipairs(staticLabel:GetDescendants()) do
+	addEffect(obj)
+end
+
+--==================================================
 -- SAVE ORIGINAL STATES
 --==================================================
 
 local originalStates = {}
 
-local function saveObject(obj)
-
-	if not obj:IsA("GuiObject") then
-		return
-	end
+for _, obj in ipairs(effectObjects) do
 
 	local state = {
 		Visible = obj.Visible,
 		BackgroundTransparency = obj.BackgroundTransparency
 	}
 
-	if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-		state.ImageTransparency = obj.ImageTransparency
+	if obj:IsA("ImageLabel")
+		or obj:IsA("ImageButton") then
+
+		state.ImageTransparency =
+			obj.ImageTransparency
 	end
 
-	if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-		state.TextTransparency = obj.TextTransparency
+	if obj:IsA("TextLabel")
+		or obj:IsA("TextButton") then
+
+		state.TextTransparency =
+			obj.TextTransparency
 	end
 
 	originalStates[obj] = state
 end
 
--- SecretLabel
-saveObject(secretLabel)
-
--- VignetteLabel
-saveObject(vignetteLabel)
-
--- Vignette children
-for _, obj in ipairs(vignetteLabel:GetDescendants()) do
-	saveObject(obj)
-end
-
--- StaticLabel
-saveObject(staticLabel)
-
--- StaticLabel children
-for _, obj in ipairs(staticLabel:GetDescendants()) do
-	saveObject(obj)
-end
-
 --==================================================
--- VIGNETTE BACKGROUND FIX
+-- FORCE BACKGROUNDS TO 1
 --==================================================
 
--- This MUST remain transparent.
-vignetteLabel.BackgroundTransparency = 1
+local function forceEffectBackgrounds()
 
---==================================================
--- EFFECT PROPERTY HELPERS
---==================================================
+	for _, obj in ipairs(effectObjects) do
 
-local function setVisualTransparency(obj, value)
-
-	if not obj or not obj.Parent then
-		return
-	end
-
-	-- Vignette background is NEVER changed.
-	if obj ~= vignetteLabel then
-		obj.BackgroundTransparency = value
-	end
-
-	if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-		obj.ImageTransparency = value
-	end
-
-	if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-		obj.TextTransparency = value
+		if obj and obj.Parent then
+			obj.BackgroundTransparency = 1
+		end
 	end
 end
 
@@ -375,68 +390,32 @@ end
 
 local function prepareEffects()
 
-	-- SecretLabel
-	secretLabel.Visible = true
+	for _, obj in ipairs(effectObjects) do
 
-	if secretLabel:IsA("TextLabel") or secretLabel:IsA("TextButton") then
-		secretLabel.TextTransparency = 1
-	end
-
-	if secretLabel:IsA("ImageLabel") or secretLabel:IsA("ImageButton") then
-		secretLabel.ImageTransparency = 1
-	end
-
-	-- Vignette
-	vignetteLabel.Visible = true
-	vignetteLabel.BackgroundTransparency = 1
-
-	if vignetteLabel:IsA("ImageLabel") or vignetteLabel:IsA("ImageButton") then
-		vignetteLabel.ImageTransparency = 1
-	end
-
-	if vignetteLabel:IsA("TextLabel") or vignetteLabel:IsA("TextButton") then
-		vignetteLabel.TextTransparency = 1
-	end
-
-	-- Vignette descendants
-	for _, obj in ipairs(vignetteLabel:GetDescendants()) do
-
-		if obj:IsA("GuiObject") then
-			obj.Visible = true
+		if not obj or not obj.Parent then
+			continue
 		end
 
-		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+		obj.Visible = true
+
+		-- EVERY BACKGROUND IS ALWAYS TRANSPARENT.
+		obj.BackgroundTransparency = 1
+
+		if obj:IsA("ImageLabel")
+			or obj:IsA("ImageButton") then
+
 			obj.ImageTransparency = 1
 		end
 
-		if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+		if obj:IsA("TextLabel")
+			or obj:IsA("TextButton") then
+
 			obj.TextTransparency = 1
 		end
 	end
 
-	-- Static + children
-	for obj in pairs(originalStates) do
-
-		if obj ~= vignetteLabel
-			and obj ~= secretLabel
-			and obj.Parent
-		then
-
-			obj.Visible = true
-
-			if obj:IsA("GuiObject") then
-				obj.BackgroundTransparency = 1
-			end
-
-			if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-				obj.ImageTransparency = 1
-			end
-
-			if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-				obj.TextTransparency = 1
-			end
-		end
-	end
+	-- Explicitly enforce the vignette background.
+	vignetteLabel.BackgroundTransparency = 1
 end
 
 --==================================================
@@ -445,7 +424,7 @@ end
 
 local function fadeEffectsIn()
 
-	for obj in pairs(originalStates) do
+	for _, obj in ipairs(effectObjects) do
 
 		if not obj or not obj.Parent then
 			continue
@@ -455,16 +434,18 @@ local function fadeEffectsIn()
 
 		local properties = {}
 
-		-- Vignette background ALWAYS stays 1.
-		if obj ~= vignetteLabel then
-			properties.BackgroundTransparency = 0
-		end
+		-- NEVER fade backgrounds in.
+		-- They stay at 1.
 
-		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+		if obj:IsA("ImageLabel")
+			or obj:IsA("ImageButton") then
+
 			properties.ImageTransparency = 0
 		end
 
-		if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+		if obj:IsA("TextLabel")
+			or obj:IsA("TextButton") then
+
 			properties.TextTransparency = 0
 		end
 
@@ -472,19 +453,21 @@ local function fadeEffectsIn()
 
 			TweenService:Create(
 				obj,
+
 				TweenInfo.new(
 					0.8,
 					Enum.EasingStyle.Sine,
 					Enum.EasingDirection.Out
 				),
+
 				properties
+
 			):Play()
 
 		end
 	end
 
-	-- Explicitly keep vignette background transparent.
-	vignetteLabel.BackgroundTransparency = 1
+	forceEffectBackgrounds()
 end
 
 --==================================================
@@ -493,55 +476,57 @@ end
 
 local function fadeEffectsOut()
 
-	for obj, original in pairs(originalStates) do
+	for _, obj in ipairs(effectObjects) do
 
 		if not obj or not obj.Parent then
 			continue
 		end
 
-		local properties = {}
+		local original =
+			originalStates[obj]
 
-		-- Vignette background NEVER gets changed.
-		if obj ~= vignetteLabel then
-			properties.BackgroundTransparency =
-				original.BackgroundTransparency
+		if not original then
+			continue
 		end
 
+		local properties = {}
+
+		-- Background STILL stays at 1.
+		properties.BackgroundTransparency = 1
+
 		if original.ImageTransparency ~= nil then
+
 			properties.ImageTransparency =
 				original.ImageTransparency
 		end
 
 		if original.TextTransparency ~= nil then
+
 			properties.TextTransparency =
 				original.TextTransparency
 		end
 
-		if next(properties) then
+		TweenService:Create(
+			obj,
 
-			TweenService:Create(
-				obj,
-				TweenInfo.new(
-					1,
-					Enum.EasingStyle.Sine,
-					Enum.EasingDirection.In
-				),
-				properties
-			):Play()
+			TweenInfo.new(
+				1,
+				Enum.EasingStyle.Sine,
+				Enum.EasingDirection.In
+			),
 
-		end
+			properties
+
+		):Play()
 	end
-
-	-- Keep the vignette background transparent while fading.
-	vignetteLabel.BackgroundTransparency = 1
 
 	task.wait(1)
 
-	vignetteLabel.BackgroundTransparency = 1
+	forceEffectBackgrounds()
 end
 
 --==================================================
--- ZOOM
+-- UISCALE ZOOM
 --==================================================
 
 local zoomScale =
@@ -559,7 +544,29 @@ if not zoomScale then
 	createdScale = true
 end
 
-local originalScale = zoomScale.Scale
+local originalScale =
+	zoomScale.Scale
+
+--==================================================
+-- EFFECT ENFORCEMENT
+--==================================================
+
+local effectLockConnection
+
+effectLockConnection =
+	RunService.Heartbeat:Connect(function()
+
+		if not interactionLocked then
+			return
+		end
+
+		-- Only force the effect backgrounds
+		-- while Enjoy is active.
+		if dialogueLabel.Text == "Enjoy." then
+			forceEffectBackgrounds()
+		end
+
+	end)
 
 --==================================================
 -- ENJOY
@@ -571,48 +578,56 @@ dialogueLabel.AutoLocalize = false
 dialogueLabel.Text = "Enjoy."
 dialogueLabel.Parent.Visible = true
 
--- Fade SecretLabel / Vignette / Static in.
+-- Fade visual content in.
 fadeEffectsIn()
 
 -- Slight zoom in.
-local zoomIn = TweenService:Create(
-	zoomScale,
-	TweenInfo.new(
-		1.2,
-		Enum.EasingStyle.Sine,
-		Enum.EasingDirection.Out
-	),
-	{
-		Scale = originalScale * 1.05
-	}
-)
+local zoomIn =
+	TweenService:Create(
+
+		zoomScale,
+
+		TweenInfo.new(
+			1.2,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.Out
+		),
+
+		{
+			Scale = originalScale * 1.05
+		}
+	)
 
 zoomIn:Play()
 
--- Keep everything active for 5 seconds.
+-- Keep Enjoy + effects active for 5 seconds.
 task.wait(5)
 
--- Fade effects back out.
+-- Fade visual content out.
 fadeEffectsOut()
 
--- Zoom back to original.
-local zoomOut = TweenService:Create(
-	zoomScale,
-	TweenInfo.new(
-		1.2,
-		Enum.EasingStyle.Sine,
-		Enum.EasingDirection.InOut
-	),
-	{
-		Scale = originalScale
-	}
-)
+-- Zoom back out.
+local zoomOut =
+	TweenService:Create(
+
+		zoomScale,
+
+		TweenInfo.new(
+			1.2,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.InOut
+		),
+
+		{
+			Scale = originalScale
+		}
+	)
 
 zoomOut:Play()
 zoomOut.Completed:Wait()
 
 --==================================================
--- RESTORE ORIGINAL STATES
+-- RESTORE VISIBILITY / VISUAL STATES
 --==================================================
 
 for obj, state in pairs(originalStates) do
@@ -621,20 +636,26 @@ for obj, state in pairs(originalStates) do
 
 		obj.Visible = state.Visible
 
-		-- Vignette background is explicitly restored to 1.
+		-- Backgrounds are restored to their original
+		-- values, except the vignette which must remain 1.
 		if obj == vignetteLabel then
+
 			obj.BackgroundTransparency = 1
+
 		else
+
 			obj.BackgroundTransparency =
 				state.BackgroundTransparency
 		end
 
 		if state.ImageTransparency ~= nil then
+
 			obj.ImageTransparency =
 				state.ImageTransparency
 		end
 
 		if state.TextTransparency ~= nil then
+
 			obj.TextTransparency =
 				state.TextTransparency
 		end
@@ -645,17 +666,29 @@ dialogueLabel.Text = ""
 dialogueLabel.Parent.Visible = false
 
 --==================================================
--- REMOVE TEMPORARY SCALE
+-- CLEAN UP ZOOM
 --==================================================
 
 if createdScale and zoomScale then
+
 	zoomScale:Destroy()
+
 else
-	zoomScale.Scale = originalScale
+
+	zoomScale.Scale =
+		originalScale
 end
 
 --==================================================
--- UNLOCK
+-- STOP EFFECT ENFORCEMENT
+--==================================================
+
+if effectLockConnection then
+	effectLockConnection:Disconnect()
+end
+
+--==================================================
+-- UNLOCK GUI
 --==================================================
 
 interactionLocked = false
@@ -664,6 +697,8 @@ if guiLockConnection then
 	guiLockConnection:Disconnect()
 end
 
-ContextActionService:UnbindAction(INPUT_LOCK_NAME)
+ContextActionService:UnbindAction(
+	INPUT_LOCK_NAME
+)
 
 restoreGui()
