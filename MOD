@@ -47,7 +47,59 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 end
 
 --==================================================
--- BLOCK ALL INPUT EXCEPT SPACE
+-- BUTTON LOCK
+--==================================================
+
+local lockedButtons = {}
+local lockedTextBoxes = {}
+
+local function lockButtons()
+	for _, obj in ipairs(mainUI:GetDescendants()) do
+		if obj:IsA("GuiButton") then
+			lockedButtons[obj] = {
+				Active = obj.Active,
+				Selectable = obj.Selectable,
+				AutoButtonColor = obj.AutoButtonColor
+			}
+
+			obj.Active = false
+			obj.Selectable = false
+			obj.AutoButtonColor = false
+
+		elseif obj:IsA("TextBox") then
+			lockedTextBoxes[obj] = {
+				Active = obj.Active,
+				TextEditable = obj.TextEditable
+			}
+
+			obj.Active = false
+			obj.TextEditable = false
+		end
+	end
+end
+
+local function unlockButtons()
+	for obj, state in pairs(lockedButtons) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.Selectable = state.Selectable
+			obj.AutoButtonColor = state.AutoButtonColor
+		end
+	end
+
+	for obj, state in pairs(lockedTextBoxes) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.TextEditable = state.TextEditable
+		end
+	end
+
+	table.clear(lockedButtons)
+	table.clear(lockedTextBoxes)
+end
+
+--==================================================
+-- INPUT LOCK
 --==================================================
 
 local INPUT_LOCK_NAME = "C9HZZ_IntroInputLock"
@@ -63,21 +115,16 @@ local function lockInput()
 		false,
 		Enum.ContextActionPriority.High.Value,
 
-		-- Mouse
 		Enum.UserInputType.MouseButton1,
 		Enum.UserInputType.MouseButton2,
 		Enum.UserInputType.MouseButton3,
-
-		-- Touch
 		Enum.UserInputType.Touch,
 
-		-- Gamepad
 		Enum.UserInputType.Gamepad1,
 		Enum.UserInputType.Gamepad2,
 		Enum.UserInputType.Gamepad3,
 		Enum.UserInputType.Gamepad4,
 
-		-- Keyboard keys EXCEPT Space
 		Enum.KeyCode.E,
 		Enum.KeyCode.F,
 		Enum.KeyCode.Q,
@@ -88,6 +135,7 @@ local function lockInput()
 		Enum.KeyCode.I,
 		Enum.KeyCode.O,
 		Enum.KeyCode.P,
+
 		Enum.KeyCode.A,
 		Enum.KeyCode.S,
 		Enum.KeyCode.D,
@@ -96,6 +144,7 @@ local function lockInput()
 		Enum.KeyCode.J,
 		Enum.KeyCode.K,
 		Enum.KeyCode.L,
+
 		Enum.KeyCode.Z,
 		Enum.KeyCode.X,
 		Enum.KeyCode.C,
@@ -110,11 +159,13 @@ local function lockInput()
 		Enum.KeyCode.RightControl,
 		Enum.KeyCode.LeftAlt,
 		Enum.KeyCode.RightAlt,
+
 		Enum.KeyCode.Tab,
 		Enum.KeyCode.Escape,
 		Enum.KeyCode.Backspace,
 		Enum.KeyCode.Delete,
 		Enum.KeyCode.Insert,
+
 		Enum.KeyCode.Home,
 		Enum.KeyCode.End,
 		Enum.KeyCode.PageUp,
@@ -142,18 +193,17 @@ local function unlockInput()
 	ContextActionService:UnbindAction(INPUT_LOCK_NAME)
 end
 
+-- Lock immediately.
+lockButtons()
 lockInput()
 
 --==================================================
 -- AUDIO INITIAL STATE
 --==================================================
 
--- Amb is already disabled, so don't announce it.
 if amb.IsPlaying then
 	amb:Stop()
 end
-
-amb.Volume = 0
 
 if level1.IsPlaying then
 	level1:Stop()
@@ -163,6 +213,8 @@ if level2.IsPlaying then
 	level2:Stop()
 end
 
+amb.Volume = 0
+
 level1.Volume = 0
 level1.Looped = true
 level1.PlaybackSpeed = 1
@@ -170,7 +222,7 @@ level1.PlaybackSpeed = 1
 level2.Volume = 0
 
 --==================================================
--- SPEECH FUNCTION
+-- SPEECH
 --==================================================
 
 local function say(text, duration)
@@ -194,7 +246,7 @@ local function say(text, duration)
 					}
 				}
 			},
-			false, -- only Space should be used for skipping
+			false,
 			duration,
 			characterVoice
 		)
@@ -250,10 +302,7 @@ local speedTween = TweenService:Create(
 
 local volumeTween = TweenService:Create(
 	level1,
-	TweenInfo.new(
-		2,
-		Enum.EasingStyle.Linear
-	),
+	TweenInfo.new(2, Enum.EasingStyle.Linear),
 	{
 		Volume = 1
 	}
@@ -286,7 +335,8 @@ say("This is a c9hzz mod.", 3)
 task.wait(0.5)
 
 --==================================================
--- RESTORE INPUT
+-- RESTORE EVERYTHING
 --==================================================
 
 unlockInput()
+unlockButtons()
