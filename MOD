@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
@@ -47,30 +48,36 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 end
 
 --==================================================
--- BUTTON LOCK
+-- CONTINUOUS GUI LOCK
 --==================================================
+
+local interactionLocked = true
 
 local lockedButtons = {}
 local lockedTextBoxes = {}
 
-local function lockButtons()
+local function enforceGuiLock()
 	for _, obj in ipairs(mainUI:GetDescendants()) do
 		if obj:IsA("GuiButton") then
-			lockedButtons[obj] = {
-				Active = obj.Active,
-				Selectable = obj.Selectable,
-				AutoButtonColor = obj.AutoButtonColor
-			}
+			if not lockedButtons[obj] then
+				lockedButtons[obj] = {
+					Active = obj.Active,
+					Selectable = obj.Selectable,
+					AutoButtonColor = obj.AutoButtonColor
+				}
+			end
 
 			obj.Active = false
 			obj.Selectable = false
 			obj.AutoButtonColor = false
 
 		elseif obj:IsA("TextBox") then
-			lockedTextBoxes[obj] = {
-				Active = obj.Active,
-				TextEditable = obj.TextEditable
-			}
+			if not lockedTextBoxes[obj] then
+				lockedTextBoxes[obj] = {
+					Active = obj.Active,
+					TextEditable = obj.TextEditable
+				}
+			end
 
 			obj.Active = false
 			obj.TextEditable = false
@@ -78,7 +85,7 @@ local function lockButtons()
 	end
 end
 
-local function unlockButtons()
+local function restoreGui()
 	for obj, state in pairs(lockedButtons) do
 		if obj and obj.Parent then
 			obj.Active = state.Active
@@ -97,6 +104,15 @@ local function unlockButtons()
 	table.clear(lockedButtons)
 	table.clear(lockedTextBoxes)
 end
+
+-- Continuously enforce the lock.
+enforceGuiLock()
+
+local guiLockConnection = RunService.Heartbeat:Connect(function()
+	if interactionLocked then
+		enforceGuiLock()
+	end
+end)
 
 --==================================================
 -- INPUT LOCK
@@ -193,8 +209,6 @@ local function unlockInput()
 	ContextActionService:UnbindAction(INPUT_LOCK_NAME)
 end
 
--- Lock immediately.
-lockButtons()
 lockInput()
 
 --==================================================
@@ -335,8 +349,14 @@ say("This is a c9hzz mod.", 3)
 task.wait(0.5)
 
 --==================================================
--- RESTORE EVERYTHING
+-- RESTORE INPUT AND GUI
 --==================================================
 
+interactionLocked = false
+
+if guiLockConnection then
+	guiLockConnection:Disconnect()
+end
+
 unlockInput()
-unlockButtons()
+restoreGui()
