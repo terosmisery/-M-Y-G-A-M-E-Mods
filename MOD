@@ -171,10 +171,19 @@ level2.Volume = 0
 -- SPEECH
 --==================================================
 
-local function say(text, duration)
+local function say(text, duration, playbackSpeed)
 
 	text = tostring(text)
 	duration = duration or 3
+
+	local oldPlaybackSpeed =
+		characterVoice.PlaybackSpeed
+
+	-- Allow individual dialogue lines to use
+	-- a different voice speed.
+	if playbackSpeed then
+		characterVoice.PlaybackSpeed = playbackSpeed
+	end
 
 	dialogueLabel.AutoLocalize = false
 	dialogueLabel.Text = text
@@ -203,6 +212,9 @@ local function say(text, duration)
 		characterVoice:Stop()
 	end
 
+	characterVoice.PlaybackSpeed =
+		oldPlaybackSpeed
+
 	dialogueLabel.Text = ""
 	dialogueLabel.Parent.Visible = false
 
@@ -228,7 +240,6 @@ say("Starting Level 1 audio.", 2)
 level1.Volume = 0
 level1.PlaybackSpeed = 1
 level1.Looped = true
-
 level1:Play()
 
 say(
@@ -323,17 +334,14 @@ local function addEffect(obj)
 	end
 end
 
--- SecretLabel
 addEffect(secretLabel)
 
--- VignetteLabel
 addEffect(vignetteLabel)
 
 for _, obj in ipairs(vignetteLabel:GetDescendants()) do
 	addEffect(obj)
 end
 
--- StaticLabel
 addEffect(staticLabel)
 
 for _, obj in ipairs(staticLabel:GetDescendants()) do
@@ -371,7 +379,7 @@ for _, obj in ipairs(effectObjects) do
 end
 
 --==================================================
--- FORCE BACKGROUNDS TO 1
+-- FORCE EFFECT BACKGROUNDS TO 1
 --==================================================
 
 local function forceEffectBackgrounds()
@@ -398,7 +406,7 @@ local function prepareEffects()
 
 		obj.Visible = true
 
-		-- EVERY BACKGROUND IS ALWAYS TRANSPARENT.
+		-- Every effect background stays transparent.
 		obj.BackgroundTransparency = 1
 
 		if obj:IsA("ImageLabel")
@@ -414,8 +422,7 @@ local function prepareEffects()
 		end
 	end
 
-	-- Explicitly enforce the vignette background.
-	vignetteLabel.BackgroundTransparency = 1
+	forceEffectBackgrounds()
 end
 
 --==================================================
@@ -434,8 +441,8 @@ local function fadeEffectsIn()
 
 		local properties = {}
 
-		-- NEVER fade backgrounds in.
-		-- They stay at 1.
+		-- Background transparency is intentionally
+		-- NOT included. It stays at 1.
 
 		if obj:IsA("ImageLabel")
 			or obj:IsA("ImageButton") then
@@ -463,7 +470,6 @@ local function fadeEffectsIn()
 				properties
 
 			):Play()
-
 		end
 	end
 
@@ -491,7 +497,7 @@ local function fadeEffectsOut()
 
 		local properties = {}
 
-		-- Background STILL stays at 1.
+		-- All effect backgrounds remain 1.
 		properties.BackgroundTransparency = 1
 
 		if original.ImageTransparency ~= nil then
@@ -560,8 +566,6 @@ effectLockConnection =
 			return
 		end
 
-		-- Only force the effect backgrounds
-		-- while Enjoy is active.
 		if dialogueLabel.Text == "Enjoy." then
 			forceEffectBackgrounds()
 		end
@@ -578,10 +582,47 @@ dialogueLabel.AutoLocalize = false
 dialogueLabel.Text = "Enjoy."
 dialogueLabel.Parent.Visible = true
 
--- Fade visual content in.
+-- Voice + mouth animation.
+-- PlaybackSpeed = 0.4.
+characterVoice.PlaybackSpeed = 0.4
+
+pcall(function()
+
+	requestSpeech:Invoke(
+		{
+			{
+				"Enjoy.",
+				{
+					IgnoreLocalize = true
+				}
+			}
+		},
+
+		false,
+		5,
+		characterVoice
+	)
+
+end)
+
+-- Make sure the voice doesn't remain at 0.4 afterward.
+if characterVoice.IsPlaying then
+	characterVoice:Stop()
+end
+
+characterVoice.PlaybackSpeed = 1
+
+--==================================================
+-- EFFECT / ZOOM TIMING
+--==================================================
+
+-- Re-display the line because RequestSpeech may
+-- modify the dialogue UI itself.
+dialogueLabel.Text = "Enjoy."
+dialogueLabel.Parent.Visible = true
+
 fadeEffectsIn()
 
--- Slight zoom in.
 local zoomIn =
 	TweenService:Create(
 
@@ -600,13 +641,10 @@ local zoomIn =
 
 zoomIn:Play()
 
--- Keep Enjoy + effects active for 5 seconds.
 task.wait(5)
 
--- Fade visual content out.
 fadeEffectsOut()
 
--- Zoom back out.
 local zoomOut =
 	TweenService:Create(
 
@@ -627,7 +665,7 @@ zoomOut:Play()
 zoomOut.Completed:Wait()
 
 --==================================================
--- RESTORE VISIBILITY / VISUAL STATES
+-- RESTORE EFFECTS
 --==================================================
 
 for obj, state in pairs(originalStates) do
@@ -636,17 +674,8 @@ for obj, state in pairs(originalStates) do
 
 		obj.Visible = state.Visible
 
-		-- Backgrounds are restored to their original
-		-- values, except the vignette which must remain 1.
-		if obj == vignetteLabel then
-
-			obj.BackgroundTransparency = 1
-
-		else
-
-			obj.BackgroundTransparency =
-				state.BackgroundTransparency
-		end
+		-- Effect backgrounds stay transparent.
+		obj.BackgroundTransparency = 1
 
 		if state.ImageTransparency ~= nil then
 
@@ -666,30 +695,18 @@ dialogueLabel.Text = ""
 dialogueLabel.Parent.Visible = false
 
 --==================================================
--- CLEAN UP ZOOM
+-- CLEANUP
 --==================================================
 
 if createdScale and zoomScale then
-
 	zoomScale:Destroy()
-
 else
-
-	zoomScale.Scale =
-		originalScale
+	zoomScale.Scale = originalScale
 end
-
---==================================================
--- STOP EFFECT ENFORCEMENT
---==================================================
 
 if effectLockConnection then
 	effectLockConnection:Disconnect()
 end
-
---==================================================
--- UNLOCK GUI
---==================================================
 
 interactionLocked = false
 
