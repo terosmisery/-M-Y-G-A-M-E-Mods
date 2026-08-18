@@ -9,23 +9,30 @@ local level1 = mainUI:WaitForChild("Level1")
 local level2 = mainUI:WaitForChild("Level2")
 
 --==================================================
--- DIALOGUE
+-- DIALOGUE SETUP
 --==================================================
 
-local surfaceScreen = mainUI:WaitForChild("SurfaceScreen")
-local baseFrame = surfaceScreen.BaseHolder.BaseFrame
+local baseFrame =
+	mainUI
+		:WaitForChild("SurfaceScreen")
+		:WaitForChild("BaseHolder")
+		:WaitForChild("BaseFrame")
 
 local dialogueLabel =
 	baseFrame.Layer1Group:FindFirstChild("DialogueLabel", true)
 
 local dialogueFrame =
-	baseFrame.Layer2Group
-	.BaseGroup
-	.GameFrame
-	.DialogueFrame
+	baseFrame
+		.Layer2Group
+		.BaseGroup
+		.GameFrame
+		.DialogueFrame
 
-local requestSpeech = dialogueFrame:WaitForChild("RequestSpeech")
-local characterVoice = mainUI:FindFirstChild("Character_Voice", true)
+local requestSpeech =
+	dialogueFrame:WaitForChild("RequestSpeech")
+
+local characterVoice =
+	mainUI:FindFirstChild("Character_Voice", true)
 
 if not dialogueLabel then
 	warn("DialogueLabel not found")
@@ -37,41 +44,61 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 	return
 end
 
-
 --==================================================
--- MAKE EVERYTHING UNINTERACTABLE
+-- DISABLE GUI INTERACTION
 --==================================================
 
-local locked = true
+local lockedButtons = {}
+local lockedTextBoxes = {}
 
-local function lockGui(obj)
-	if obj:IsA("GuiButton") then
-		obj.Active = false
-		obj.Selectable = false
-	end
+local function lockInteraction()
+	for _, obj in ipairs(pg:GetDescendants()) do
+		if obj:IsA("GuiButton") then
+			lockedButtons[obj] = {
+				Active = obj.Active,
+				Selectable = obj.Selectable
+			}
 
-	if obj:IsA("TextBox") then
-		obj.Active = false
-		obj.TextEditable = false
+			obj.Active = false
+			obj.Selectable = false
+
+		elseif obj:IsA("TextBox") then
+			lockedTextBoxes[obj] = {
+				Active = obj.Active,
+				TextEditable = obj.TextEditable
+			}
+
+			obj.Active = false
+			obj.TextEditable = false
+		end
 	end
 end
 
-for _, obj in ipairs(pg:GetDescendants()) do
-	lockGui(obj)
+local function unlockInteraction()
+	for obj, state in pairs(lockedButtons) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.Selectable = state.Selectable
+		end
+	end
+
+	for obj, state in pairs(lockedTextBoxes) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.TextEditable = state.TextEditable
+		end
+	end
+
+	table.clear(lockedButtons)
+	table.clear(lockedTextBoxes)
 end
 
-pg.DescendantAdded:Connect(function(obj)
-	if locked then
-		lockGui(obj)
-	end
-end)
-
+lockInteraction()
 
 --==================================================
--- AUDIO INITIAL STATE
+-- STOP ALL AUDIO FIRST
 --==================================================
 
--- Nothing starts before the character says it should.
 if amb.IsPlaying then
 	amb:Stop()
 end
@@ -88,7 +115,6 @@ amb.Volume = 0
 level1.Volume = 0
 level2.Volume = 0
 
-
 --==================================================
 -- SPEECH FUNCTION
 --==================================================
@@ -104,8 +130,8 @@ local function say(text, duration)
 		dialogueLabel.Parent.Visible = true
 	end
 
-	local ok, result = pcall(function()
-		return requestSpeech:Invoke(
+	pcall(function()
+		requestSpeech:Invoke(
 			{
 				{
 					text,
@@ -129,55 +155,37 @@ local function say(text, duration)
 	if dialogueLabel.Parent then
 		dialogueLabel.Parent.Visible = false
 	end
-
-	return ok, result
 end
 
-
 --==================================================
--- SCRIPT SEQUENCE
+-- SCRIPT NARRATION
 --==================================================
 
-say("Initializing the system.", 2)
+say("Injecting the script.", 2)
 
-say("Ambient audio is currently disabled.", 2)
+say("Initializing.", 1.5)
+
+say("Ambient audio is disabled.", 2)
 
 say("Starting Level 1 audio.", 2)
 
--- NOW Level 1 actually starts.
 level1.Volume = 1
 level1.Looped = true
 level1:Play()
 
 say("Level 1 audio is now playing.", 2)
 
-say("Level 2 audio will remain disabled.", 2)
+say("Level 2 audio is disabled.", 2)
 
-level2:Stop()
 level2.Volume = 0
+level2:Stop()
 
-say("Loading the interface.", 2)
+say("Setting up the interface.", 2)
 
-say("Setting up the controls.", 2)
-
-say("The initialization is complete.", 3)
-
+say("Initialization complete.", 2)
 
 --==================================================
--- FINISHED
+-- RESTORE GUI INTERACTION
 --==================================================
 
-locked = false
-
--- Re-enable normal GUI interaction.
-for _, obj in ipairs(pg:GetDescendants()) do
-	if obj:IsA("GuiButton") then
-		obj.Active = true
-		obj.Selectable = true
-	end
-
-	if obj:IsA("TextBox") then
-		obj.Active = true
-		obj.TextEditable = true
-	end
-end
+unlockInteraction()
