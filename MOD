@@ -1,25 +1,18 @@
 local Players = game:GetService("Players")
+local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
-local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
 local mainUI = pg:WaitForChild("MainUI")
 
-local function notify(text)
-	pcall(function()
-		StarterGui:SetCore("SendNotification", {
-			Title = "C9HZZ",
-			Text = tostring(text),
-			Duration = 3
-		})
-	end)
-end
+local amb = mainUI:WaitForChild("Amb")
+local level1 = mainUI:WaitForChild("Level1")
+local level2 = mainUI:WaitForChild("Level2")
 
 --==================================================
--- FIND UI
+-- DIALOGUE SETUP
 --==================================================
 
 local baseFrame =
@@ -28,225 +21,217 @@ local baseFrame =
 		:WaitForChild("BaseHolder")
 		:WaitForChild("BaseFrame")
 
-local layer1Group = baseFrame:WaitForChild("Layer1Group")
-local celestialGroup = layer1Group:WaitForChild("CelestialGroup")
-
 local dialogueLabel =
-	layer1Group:FindFirstChild("DialogueLabel", true)
+	baseFrame.Layer1Group:FindFirstChild("DialogueLabel", true)
 
 local dialogueFrame =
 	baseFrame
-		:WaitForChild("Layer2Group")
-		:WaitForChild("BaseGroup")
-		:WaitForChild("GameFrame")
-		:WaitForChild("DialogueFrame")
+		.Layer2Group
+		.BaseGroup
+		.GameFrame
+		.DialogueFrame
 
-local requestSpeech = dialogueFrame:WaitForChild("RequestSpeech")
-local characterVoice = mainUI:FindFirstChild("Character_Voice", true)
+local requestSpeech =
+	dialogueFrame:WaitForChild("RequestSpeech")
+
+local characterVoice =
+	mainUI:FindFirstChild("Character_Voice", true)
 
 if not dialogueLabel then
-	notify("DialogueLabel missing")
+	warn("DialogueLabel not found")
 	return
 end
 
-if not characterVoice then
-	notify("Character_Voice missing")
+if not characterVoice or not characterVoice:IsA("Sound") then
+	warn("Character_Voice not found")
 	return
 end
 
 --==================================================
--- FADE TARGETS
+-- CONTINUOUS GUI LOCK
 --==================================================
 
-local fadeTargets = {
-	layer1Group:WaitForChild("GameButton1"),
-	layer1Group:WaitForChild("GameButton2"),
-	layer1Group:WaitForChild("GameButton3"),
-	layer1Group:WaitForChild("Background"),
-	celestialGroup:WaitForChild("Moon"),
-	celestialGroup:WaitForChild("Sun")
-}
+local interactionLocked = true
 
---==================================================
--- COLLECT ALL GUI OBJECTS
---==================================================
+local lockedButtons = {}
+local lockedTextBoxes = {}
 
-local fadeParts = {}
+local function enforceGuiLock()
+	for _, obj in ipairs(mainUI:GetDescendants()) do
+		if obj:IsA("GuiButton") then
+			if not lockedButtons[obj] then
+				lockedButtons[obj] = {
+					Active = obj.Active,
+					Selectable = obj.Selectable,
+					AutoButtonColor = obj.AutoButtonColor
+				}
+			end
 
-for _, root in ipairs(fadeTargets) do
-	if root:IsA("GuiObject") then
-		table.insert(fadeParts, root)
-	end
+			obj.Active = false
+			obj.Selectable = false
+			obj.AutoButtonColor = false
 
-	for _, obj in ipairs(root:GetDescendants()) do
-		if obj:IsA("GuiObject") then
-			table.insert(fadeParts, obj)
+		elseif obj:IsA("TextBox") then
+			if not lockedTextBoxes[obj] then
+				lockedTextBoxes[obj] = {
+					Active = obj.Active,
+					TextEditable = obj.TextEditable
+				}
+			end
+
+			obj.Active = false
+			obj.TextEditable = false
 		end
 	end
 end
 
---==================================================
--- SAVE ORIGINAL TRANSPARENCIES
---==================================================
-
-local original = {}
-
-for _, obj in ipairs(fadeParts) do
-	local data = {}
-
-	if obj:IsA("GuiObject") then
-		data.BackgroundTransparency = obj.BackgroundTransparency
+local function restoreGui()
+	for obj, state in pairs(lockedButtons) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.Selectable = state.Selectable
+			obj.AutoButtonColor = state.AutoButtonColor
+		end
 	end
 
-	if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-		data.ImageTransparency = obj.ImageTransparency
+	for obj, state in pairs(lockedTextBoxes) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.TextEditable = state.TextEditable
+		end
 	end
 
-	if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-		data.TextTransparency = obj.TextTransparency
-	end
-
-	original[obj] = data
+	table.clear(lockedButtons)
+	table.clear(lockedTextBoxes)
 end
 
---==================================================
--- HIDE
---==================================================
+-- Continuously enforce the lock.
+enforceGuiLock()
 
-local function hideImmediately()
-	for _, obj in ipairs(fadeParts) do
-		if obj.Parent == nil then
-			continue
-		end
-
-		obj.BackgroundTransparency = 1
-
-		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-			obj.ImageTransparency = 1
-		end
-
-		if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-			obj.TextTransparency = 1
-		end
+local guiLockConnection = RunService.Heartbeat:Connect(function()
+	if interactionLocked then
+		enforceGuiLock()
 	end
-end
-
-local function fadeOut()
-	for _, obj in ipairs(fadeParts) do
-		if obj.Parent == nil then
-			continue
-		end
-
-		local properties = {
-			BackgroundTransparency = 1
-		}
-
-		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-			properties.ImageTransparency = 1
-		end
-
-		if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-			properties.TextTransparency = 1
-		end
-
-		TweenService:Create(
-			obj,
-			TweenInfo.new(
-				1.5,
-				Enum.EasingStyle.Sine,
-				Enum.EasingDirection.Out
-			),
-			properties
-		):Play()
-	end
-
-	task.wait(1.5)
-
-	hideImmediately()
-end
-
-local function fadeIn()
-	for _, obj in ipairs(fadeParts) do
-		if obj.Parent == nil then
-			continue
-		end
-
-		local data = original[obj]
-
-		if not data then
-			continue
-		end
-
-		TweenService:Create(
-			obj,
-			TweenInfo.new(
-				1.5,
-				Enum.EasingStyle.Sine,
-				Enum.EasingDirection.Out
-			),
-			data
-		):Play()
-	end
-
-	task.wait(1.5)
-end
+end)
 
 --==================================================
 -- INPUT LOCK
 --==================================================
 
-local INPUT_NAME = "C9HZZ_Lock"
+local INPUT_LOCK_NAME = "C9HZZ_IntroInputLock"
 
-ContextActionService:BindActionAtPriority(
-	INPUT_NAME,
-	function()
-		return Enum.ContextActionResult.Sink
-	end,
-	false,
-	Enum.ContextActionPriority.High.Value,
-
-	Enum.UserInputType.MouseButton1,
-	Enum.UserInputType.MouseButton2,
-	Enum.UserInputType.MouseButton3,
-	Enum.UserInputType.Touch
-)
-
---==================================================
--- DISABLE BUTTONS
---==================================================
-
-local function disableButtons()
-	for _, obj in ipairs(mainUI:GetDescendants()) do
-		if obj:IsA("GuiButton") then
-			obj.Active = false
-			obj.Selectable = false
-			obj.AutoButtonColor = false
-		end
-	end
+local function sinkInput()
+	return Enum.ContextActionResult.Sink
 end
 
-disableButtons()
+local function lockInput()
+	ContextActionService:BindActionAtPriority(
+		INPUT_LOCK_NAME,
+		sinkInput,
+		false,
+		Enum.ContextActionPriority.High.Value,
 
--- Keep them disabled because the game may re-enable them.
-local lockConnection = RunService.Heartbeat:Connect(function()
-	disableButtons()
-end)
+		Enum.UserInputType.MouseButton1,
+		Enum.UserInputType.MouseButton2,
+		Enum.UserInputType.MouseButton3,
+		Enum.UserInputType.Touch,
+
+		Enum.UserInputType.Gamepad1,
+		Enum.UserInputType.Gamepad2,
+		Enum.UserInputType.Gamepad3,
+		Enum.UserInputType.Gamepad4,
+
+		Enum.KeyCode.E,
+		Enum.KeyCode.F,
+		Enum.KeyCode.Q,
+		Enum.KeyCode.R,
+		Enum.KeyCode.T,
+		Enum.KeyCode.Y,
+		Enum.KeyCode.U,
+		Enum.KeyCode.I,
+		Enum.KeyCode.O,
+		Enum.KeyCode.P,
+
+		Enum.KeyCode.A,
+		Enum.KeyCode.S,
+		Enum.KeyCode.D,
+		Enum.KeyCode.G,
+		Enum.KeyCode.H,
+		Enum.KeyCode.J,
+		Enum.KeyCode.K,
+		Enum.KeyCode.L,
+
+		Enum.KeyCode.Z,
+		Enum.KeyCode.X,
+		Enum.KeyCode.C,
+		Enum.KeyCode.V,
+		Enum.KeyCode.B,
+		Enum.KeyCode.N,
+		Enum.KeyCode.M,
+
+		Enum.KeyCode.LeftShift,
+		Enum.KeyCode.RightShift,
+		Enum.KeyCode.LeftControl,
+		Enum.KeyCode.RightControl,
+		Enum.KeyCode.LeftAlt,
+		Enum.KeyCode.RightAlt,
+
+		Enum.KeyCode.Tab,
+		Enum.KeyCode.Escape,
+		Enum.KeyCode.Backspace,
+		Enum.KeyCode.Delete,
+		Enum.KeyCode.Insert,
+
+		Enum.KeyCode.Home,
+		Enum.KeyCode.End,
+		Enum.KeyCode.PageUp,
+		Enum.KeyCode.PageDown,
+
+		Enum.KeyCode.Up,
+		Enum.KeyCode.Down,
+		Enum.KeyCode.Left,
+		Enum.KeyCode.Right,
+
+		Enum.KeyCode.One,
+		Enum.KeyCode.Two,
+		Enum.KeyCode.Three,
+		Enum.KeyCode.Four,
+		Enum.KeyCode.Five,
+		Enum.KeyCode.Six,
+		Enum.KeyCode.Seven,
+		Enum.KeyCode.Eight,
+		Enum.KeyCode.Nine,
+		Enum.KeyCode.Zero
+	)
+end
+
+local function unlockInput()
+	ContextActionService:UnbindAction(INPUT_LOCK_NAME)
+end
+
+lockInput()
 
 --==================================================
--- AUDIO
+-- AUDIO INITIAL STATE
 --==================================================
 
-local amb = mainUI:WaitForChild("Amb")
-local level1 = mainUI:WaitForChild("Level1")
-local level2 = mainUI:WaitForChild("Level2")
+if amb.IsPlaying then
+	amb:Stop()
+end
 
-amb:Stop()
-level1:Stop()
-level2:Stop()
+if level1.IsPlaying then
+	level1:Stop()
+end
 
+if level2.IsPlaying then
+	level2:Stop()
+end
+
+amb.Volume = 0
+
+level1.Volume = 0
 level1.Looped = true
 level1.PlaybackSpeed = 1
-level1.Volume = 0
 
 level2.Volume = 0
 
@@ -255,9 +240,15 @@ level2.Volume = 0
 --==================================================
 
 local function say(text, duration)
-	dialogueLabel.Text = text
+	text = tostring(text)
+	duration = duration or 3
+
 	dialogueLabel.AutoLocalize = false
-	dialogueLabel.Parent.Visible = true
+	dialogueLabel.Text = text
+
+	if dialogueLabel.Parent then
+		dialogueLabel.Parent.Visible = true
+	end
 
 	pcall(function()
 		requestSpeech:Invoke(
@@ -280,68 +271,92 @@ local function say(text, duration)
 	end
 
 	dialogueLabel.Text = ""
-	dialogueLabel.Parent.Visible = false
+
+	if dialogueLabel.Parent then
+		dialogueLabel.Parent.Visible = false
+	end
 
 	task.wait(0.15)
 end
 
 --==================================================
--- START
+-- INTRO
 --==================================================
 
 task.wait(0.5)
-
-notify("Fading Layer 1")
-
-fadeOut()
-
-notify("Layer 1 hidden")
 
 say("Injecting the script.", 2)
 
 say("Initializing.", 1.5)
 
+--==================================================
+-- LEVEL 1
+--==================================================
+
 say("Starting Level 1 audio.", 2)
 
+level1.Volume = 0
+level1.PlaybackSpeed = 1
+level1.Looped = true
 level1:Play()
 
 say("Slowing Level 1 audio down to zero point five.", 2)
 
-TweenService:Create(
+local speedTween = TweenService:Create(
 	level1,
-	TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+	TweenInfo.new(
+		3,
+		Enum.EasingStyle.Sine,
+		Enum.EasingDirection.Out
+	),
 	{
 		PlaybackSpeed = 0.5
 	}
-):Play()
+)
 
-TweenService:Create(
+local volumeTween = TweenService:Create(
 	level1,
-	TweenInfo.new(2),
+	TweenInfo.new(2, Enum.EasingStyle.Linear),
 	{
 		Volume = 1
 	}
-):Play()
+)
 
-task.wait(3)
+speedTween:Play()
+volumeTween:Play()
+
+speedTween.Completed:Wait()
 
 say("Level 1 audio is now playing at zero point five speed.", 2)
 
-level2:Stop()
+--==================================================
+-- LEVEL 2
+--==================================================
+
+say("Level 2 audio is disabled.", 2)
+
 level2.Volume = 0
+level2:Stop()
+
+--==================================================
+-- FINISH
+--==================================================
 
 say("Initialization complete.", 2)
 
 say("This is a c9hzz mod.", 3)
 
+task.wait(0.5)
+
 --==================================================
--- RESTORE
+-- RESTORE INPUT AND GUI
 --==================================================
 
-if lockConnection then
-	lockConnection:Disconnect()
+interactionLocked = false
+
+if guiLockConnection then
+	guiLockConnection:Disconnect()
 end
 
-ContextActionService:UnbindAction(INPUT_NAME)
-
-fadeIn()
+unlockInput()
+restoreGui()
