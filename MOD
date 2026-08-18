@@ -1,10 +1,15 @@
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
 
+local player = Players.LocalPlayer
 local mainUI = player:WaitForChild("PlayerGui"):WaitForChild("MainUI")
 
 local amb = mainUI:WaitForChild("Amb")
 local level1 = mainUI:WaitForChild("Level1")
+local level2 = mainUI:WaitForChild("Level2")
+
+--==================================================
+-- MUSIC CONTROL
+--==================================================
 
 -- Keep Amb disabled
 local function stopAmb()
@@ -39,50 +44,7 @@ level1:GetPropertyChangedSignal("Playing"):Connect(function()
 	forceLevel1()
 end)
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local mainUI = player:WaitForChild("PlayerGui"):WaitForChild("MainUI")
-
-local amb = mainUI:WaitForChild("Amb")
-local level1 = mainUI:WaitForChild("Level1")
-local level2 = mainUI:WaitForChild("Level2")
-
--- Keep Amb disabled
-local function stopAmb()
-	if amb.IsPlaying then
-		amb:Stop()
-	end
-end
-
-stopAmb()
-
-amb:GetPropertyChangedSignal("Playing"):Connect(function()
-	stopAmb()
-end)
-
--- Keep Level1 playing
-local function forceLevel1()
-	level1.Volume = 1
-	level1.Looped = true
-
-	if not level1.IsPlaying then
-		level1:Play()
-	end
-end
-
-forceLevel1()
-
-level1:GetPropertyChangedSignal("Volume"):Connect(function()
-	forceLevel1()
-end)
-
-level1:GetPropertyChangedSignal("Playing"):Connect(function()
-	forceLevel1()
-end)
-
-local level2 = mainUI:WaitForChild("Level2")
-
+-- Keep Level2 stopped
 local function stopLevel2()
 	if level2.IsPlaying then
 		level2:Stop()
@@ -94,3 +56,109 @@ stopLevel2()
 level2:GetPropertyChangedSignal("Playing"):Connect(function()
 	stopLevel2()
 end)
+
+
+--==================================================
+-- DIALOGUE
+--==================================================
+
+local surfaceScreen = mainUI:WaitForChild("SurfaceScreen")
+
+local baseHolder = surfaceScreen:WaitForChild("BaseHolder")
+local baseFrame = baseHolder:WaitForChild("BaseFrame")
+
+-- Layer 1 speech bubble
+local layer1 = baseFrame:WaitForChild("Layer1Group")
+
+local dialogueLabel = layer1:FindFirstChild("DialogueLabel", true)
+
+-- Layer 2 voice/dialogue system
+local dialogueFrame =
+	baseFrame
+	.Layer2Group
+	.BaseGroup
+	.GameFrame
+	.DialogueFrame
+
+local requestSpeech = dialogueFrame:WaitForChild("RequestSpeech")
+
+-- Character voice you found
+local characterVoice = mainUI:FindFirstChild("Character_Voice", true)
+
+if not dialogueLabel then
+	warn("DialogueLabel not found")
+	return
+end
+
+if not characterVoice or not characterVoice:IsA("Sound") then
+	warn("Character_Voice not found")
+	return
+end
+
+
+--==================================================
+-- SAY FUNCTION
+--==================================================
+
+local function say(text, duration)
+	text = tostring(text)
+	duration = duration or 3
+
+	-- Layer 1: show the actual speech bubble
+	dialogueLabel.AutoLocalize = false
+	dialogueLabel.Text = text
+
+	if dialogueLabel.Parent then
+		dialogueLabel.Parent.Visible = true
+	end
+
+	-- Layer 2: voice + mouth animation
+	local ok = pcall(function()
+		requestSpeech:Invoke(
+			{
+				{
+					text,
+					{
+						IgnoreLocalize = true
+					}
+				}
+			},
+			true, -- Space/B/Touch can skip
+			duration,
+			characterVoice
+		)
+	end)
+
+	-- Make sure voice isn't left running
+	if characterVoice.IsPlaying then
+		characterVoice:Stop()
+	end
+
+	-- Remove Layer 1 bubble
+	dialogueLabel.Text = ""
+
+	if dialogueLabel.Parent then
+		dialogueLabel.Parent.Visible = false
+	end
+
+	return ok
+end
+
+
+--==================================================
+-- REAL-TIME SCRIPT NARRATION
+--==================================================
+
+say("Initializing.", 1.5)
+
+say("Disabling the ambient soundtrack.", 2)
+
+say("Starting Level 1 audio.", 2)
+
+say("Disabling Level 2 audio.", 2)
+
+say("Setting up the interface.", 2)
+
+say("Loading the script.", 2)
+
+say("Everything is ready.", 3)
