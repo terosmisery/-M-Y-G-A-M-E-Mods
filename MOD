@@ -1,5 +1,4 @@
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
@@ -46,15 +45,16 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 end
 
 --==================================================
--- LOCK MAINUI INTERACTION
+-- LOCK MAINUI BUTTONS
 --==================================================
 
-local locked = {}
+local lockedButtons = {}
+local lockedTextBoxes = {}
 
 local function lockMainUI()
 	for _, obj in ipairs(mainUI:GetDescendants()) do
 		if obj:IsA("GuiButton") then
-			locked[obj] = {
+			lockedButtons[obj] = {
 				Active = obj.Active,
 				Selectable = obj.Selectable,
 				AutoButtonColor = obj.AutoButtonColor
@@ -65,7 +65,7 @@ local function lockMainUI()
 			obj.AutoButtonColor = false
 
 		elseif obj:IsA("TextBox") then
-			locked[obj] = {
+			lockedTextBoxes[obj] = {
 				Active = obj.Active,
 				TextEditable = obj.TextEditable
 			}
@@ -77,27 +77,29 @@ local function lockMainUI()
 end
 
 local function unlockMainUI()
-	for obj, state in pairs(locked) do
+	for obj, state in pairs(lockedButtons) do
 		if obj and obj.Parent then
-			if obj:IsA("GuiButton") then
-				obj.Active = state.Active
-				obj.Selectable = state.Selectable
-				obj.AutoButtonColor = state.AutoButtonColor
-
-			elseif obj:IsA("TextBox") then
-				obj.Active = state.Active
-				obj.TextEditable = state.TextEditable
-			end
+			obj.Active = state.Active
+			obj.Selectable = state.Selectable
+			obj.AutoButtonColor = state.AutoButtonColor
 		end
 	end
 
-	table.clear(locked)
+	for obj, state in pairs(lockedTextBoxes) do
+		if obj and obj.Parent then
+			obj.Active = state.Active
+			obj.TextEditable = state.TextEditable
+		end
+	end
+
+	table.clear(lockedButtons)
+	table.clear(lockedTextBoxes)
 end
 
 lockMainUI()
 
 --==================================================
--- STOP AUDIO BEFORE NARRATION
+-- STOP ALL AUDIO FIRST
 --==================================================
 
 if amb.IsPlaying then
@@ -116,7 +118,6 @@ amb.Volume = 0
 level1.Volume = 0
 level2.Volume = 0
 
--- Slow Level 1 down
 level1.PlaybackSpeed = 0.55
 level1.Looped = true
 
@@ -182,20 +183,10 @@ say("Ambient audio is disabled.", 2)
 
 say("Starting Level 1 audio.", 2)
 
-level1.Volume = 0
+level1.Volume = 1
 level1.PlaybackSpeed = 0.55
 level1.Looped = true
 level1:Play()
-
--- Smoothly fade Level 1 in
-local fadeIn = TweenService:Create(
-	level1,
-	TweenInfo.new(2, Enum.EasingStyle.Linear),
-	{Volume = 1}
-)
-
-fadeIn:Play()
-fadeIn.Completed:Wait()
 
 say("Level 1 audio is now playing.", 2)
 
@@ -216,11 +207,10 @@ say("Initialization complete.", 2)
 
 say("This is a c9hzz mod.", 3)
 
--- Small final hold
 task.wait(0.5)
 
 --==================================================
--- RESTORE INTERACTION
+-- RESTORE MAINUI
 --==================================================
 
 unlockMainUI()
