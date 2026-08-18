@@ -47,16 +47,16 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 end
 
 --==================================================
--- BLOCK MOUSE / TOUCH INPUT
+-- BLOCK ALL INPUT EXCEPT SPACE
 --==================================================
 
-local INPUT_LOCK_NAME = "C9HZZ_MainUI_InputLock"
+local INPUT_LOCK_NAME = "C9HZZ_IntroInputLock"
 
 local function sinkInput()
 	return Enum.ContextActionResult.Sink
 end
 
-local function lockMainUI()
+local function lockInput()
 	ContextActionService:BindActionAtPriority(
 		INPUT_LOCK_NAME,
 		sinkInput,
@@ -69,24 +69,91 @@ local function lockMainUI()
 		Enum.UserInputType.MouseButton3,
 
 		-- Touch
-		Enum.UserInputType.Touch
+		Enum.UserInputType.Touch,
+
+		-- Gamepad
+		Enum.UserInputType.Gamepad1,
+		Enum.UserInputType.Gamepad2,
+		Enum.UserInputType.Gamepad3,
+		Enum.UserInputType.Gamepad4,
+
+		-- Keyboard keys EXCEPT Space
+		Enum.KeyCode.E,
+		Enum.KeyCode.F,
+		Enum.KeyCode.Q,
+		Enum.KeyCode.R,
+		Enum.KeyCode.T,
+		Enum.KeyCode.Y,
+		Enum.KeyCode.U,
+		Enum.KeyCode.I,
+		Enum.KeyCode.O,
+		Enum.KeyCode.P,
+		Enum.KeyCode.A,
+		Enum.KeyCode.S,
+		Enum.KeyCode.D,
+		Enum.KeyCode.G,
+		Enum.KeyCode.H,
+		Enum.KeyCode.J,
+		Enum.KeyCode.K,
+		Enum.KeyCode.L,
+		Enum.KeyCode.Z,
+		Enum.KeyCode.X,
+		Enum.KeyCode.C,
+		Enum.KeyCode.V,
+		Enum.KeyCode.B,
+		Enum.KeyCode.N,
+		Enum.KeyCode.M,
+
+		Enum.KeyCode.LeftShift,
+		Enum.KeyCode.RightShift,
+		Enum.KeyCode.LeftControl,
+		Enum.KeyCode.RightControl,
+		Enum.KeyCode.LeftAlt,
+		Enum.KeyCode.RightAlt,
+		Enum.KeyCode.Tab,
+		Enum.KeyCode.Escape,
+		Enum.KeyCode.Backspace,
+		Enum.KeyCode.Delete,
+		Enum.KeyCode.Insert,
+		Enum.KeyCode.Home,
+		Enum.KeyCode.End,
+		Enum.KeyCode.PageUp,
+		Enum.KeyCode.PageDown,
+
+		Enum.KeyCode.Up,
+		Enum.KeyCode.Down,
+		Enum.KeyCode.Left,
+		Enum.KeyCode.Right,
+
+		Enum.KeyCode.One,
+		Enum.KeyCode.Two,
+		Enum.KeyCode.Three,
+		Enum.KeyCode.Four,
+		Enum.KeyCode.Five,
+		Enum.KeyCode.Six,
+		Enum.KeyCode.Seven,
+		Enum.KeyCode.Eight,
+		Enum.KeyCode.Nine,
+		Enum.KeyCode.Zero
 	)
 end
 
-local function unlockMainUI()
+local function unlockInput()
 	ContextActionService:UnbindAction(INPUT_LOCK_NAME)
 end
 
--- Lock immediately when the script starts.
-lockMainUI()
+lockInput()
 
 --==================================================
--- STOP ALL AUDIO FIRST
+-- AUDIO INITIAL STATE
 --==================================================
 
+-- Amb is already disabled, so don't announce it.
 if amb.IsPlaying then
 	amb:Stop()
 end
+
+amb.Volume = 0
 
 if level1.IsPlaying then
 	level1:Stop()
@@ -95,8 +162,6 @@ end
 if level2.IsPlaying then
 	level2:Stop()
 end
-
-amb.Volume = 0
 
 level1.Volume = 0
 level1.Looped = true
@@ -129,13 +194,12 @@ local function say(text, duration)
 					}
 				}
 			},
-			true, -- Space / B / Touch can skip dialogue
+			false, -- only Space should be used for skipping
 			duration,
 			characterVoice
 		)
 	end)
 
-	-- Make sure the voice stops after the dialogue ends.
 	if characterVoice.IsPlaying then
 		characterVoice:Stop()
 	end
@@ -159,15 +223,12 @@ say("Injecting the script.", 2)
 
 say("Initializing.", 1.5)
 
-say("Ambient audio is disabled.", 2)
-
 --==================================================
 -- LEVEL 1
 --==================================================
 
 say("Starting Level 1 audio.", 2)
 
--- Start Level 1 at normal speed and zero volume.
 level1.Volume = 0
 level1.PlaybackSpeed = 1
 level1.Looped = true
@@ -175,7 +236,6 @@ level1:Play()
 
 say("Slowing Level 1 audio down to zero point five.", 2)
 
--- Gradually slow from 1.0 to 0.5.
 local speedTween = TweenService:Create(
 	level1,
 	TweenInfo.new(
@@ -188,9 +248,6 @@ local speedTween = TweenService:Create(
 	}
 )
 
-speedTween:Play()
-
--- Gradually bring the music in at the same time.
 local volumeTween = TweenService:Create(
 	level1,
 	TweenInfo.new(
@@ -202,6 +259,7 @@ local volumeTween = TweenService:Create(
 	}
 )
 
+speedTween:Play()
 volumeTween:Play()
 
 speedTween.Completed:Wait()
@@ -231,4 +289,4 @@ task.wait(0.5)
 -- RESTORE INPUT
 --==================================================
 
-unlockMainUI()
+unlockInput()
