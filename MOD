@@ -21,15 +21,18 @@ local baseFrame =
 		:WaitForChild("BaseHolder")
 		:WaitForChild("BaseFrame")
 
+local layer1Group = baseFrame:WaitForChild("Layer1Group")
+local celestialGroup = layer1Group:WaitForChild("CelestialGroup")
+
 local dialogueLabel =
-	baseFrame.Layer1Group:FindFirstChild("DialogueLabel", true)
+	layer1Group:FindFirstChild("DialogueLabel", true)
 
 local dialogueFrame =
 	baseFrame
-		.Layer2Group
-		.BaseGroup
-		.GameFrame
-		.DialogueFrame
+		:WaitForChild("Layer2Group")
+		:WaitForChild("BaseGroup")
+		:WaitForChild("GameFrame")
+		:WaitForChild("DialogueFrame")
 
 local requestSpeech =
 	dialogueFrame:WaitForChild("RequestSpeech")
@@ -48,7 +51,155 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 end
 
 --==================================================
--- CONTINUOUS GUI LOCK
+-- OBJECTS TO HIDE DURING DIALOGUE
+--==================================================
+
+local fadeObjects = {
+	layer1Group:WaitForChild("GameButton1"),
+	layer1Group:WaitForChild("GameButton2"),
+	layer1Group:WaitForChild("GameButton3"),
+	layer1Group:WaitForChild("Background"),
+	celestialGroup:WaitForChild("Moon"),
+	celestialGroup:WaitForChild("Sun")
+}
+
+--==================================================
+-- SAVE ORIGINAL TRANSPARENCIES
+--==================================================
+
+local originalTransparency = {}
+
+for _, obj in ipairs(fadeObjects) do
+	local state = {}
+
+	if obj:IsA("GuiObject") then
+		state.BackgroundTransparency = obj.BackgroundTransparency
+	end
+
+	if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+		state.ImageTransparency = obj.ImageTransparency
+	end
+
+	if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+		state.TextTransparency = obj.TextTransparency
+	end
+
+	originalTransparency[obj] = state
+end
+
+--==================================================
+-- FORCE HIDDEN
+--==================================================
+
+local function forceHidden()
+	for _, obj in ipairs(fadeObjects) do
+		if obj:IsA("GuiObject") then
+			obj.BackgroundTransparency = 1
+		end
+
+		if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+			obj.ImageTransparency = 1
+		end
+
+		if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+			obj.TextTransparency = 1
+		end
+	end
+end
+
+--==================================================
+-- FADE OUT
+--==================================================
+
+local function fadeLayer1Out()
+	local completed = 0
+	local total = 0
+
+	for _, obj in ipairs(fadeObjects) do
+		if obj:IsA("GuiObject") then
+			total += 1
+
+			local properties = {
+				BackgroundTransparency = 1
+			}
+
+			if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+				properties.ImageTransparency = 1
+			end
+
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+				properties.TextTransparency = 1
+			end
+
+			local tween = TweenService:Create(
+				obj,
+				TweenInfo.new(
+					1.5,
+					Enum.EasingStyle.Sine,
+					Enum.EasingDirection.Out
+				),
+				properties
+			)
+
+			tween.Completed:Connect(function()
+				completed += 1
+			end)
+
+			tween:Play()
+		end
+	end
+
+	task.wait(1.5)
+
+	-- Make absolutely sure another script hasn't restored them.
+	forceHidden()
+end
+
+--==================================================
+-- FADE IN
+--==================================================
+
+local function fadeLayer1In()
+	for _, obj in ipairs(fadeObjects) do
+		if obj:IsA("GuiObject") then
+			local original = originalTransparency[obj]
+
+			if original then
+				local properties = {}
+
+				if original.BackgroundTransparency ~= nil then
+					properties.BackgroundTransparency =
+						original.BackgroundTransparency
+				end
+
+				if original.ImageTransparency ~= nil then
+					properties.ImageTransparency =
+						original.ImageTransparency
+				end
+
+				if original.TextTransparency ~= nil then
+					properties.TextTransparency =
+						original.TextTransparency
+				end
+
+				TweenService:Create(
+					obj,
+					TweenInfo.new(
+						1.5,
+						Enum.EasingStyle.Sine,
+						Enum.EasingDirection.Out
+					),
+					properties
+				):Play()
+			end
+		end
+	end
+
+	task.wait(1.5)
+end
+
+--==================================================
+-- CONTINUOUS LOCKS
 --==================================================
 
 local interactionLocked = true
@@ -105,13 +256,19 @@ local function restoreGui()
 	table.clear(lockedTextBoxes)
 end
 
--- Continuously enforce the lock.
+--==================================================
+-- ONE HEARTBEAT LOOP FOR BOTH LOCKS
+--==================================================
+
 enforceGuiLock()
 
-local guiLockConnection = RunService.Heartbeat:Connect(function()
-	if interactionLocked then
-		enforceGuiLock()
+local enforcementConnection = RunService.Heartbeat:Connect(function()
+	if not interactionLocked then
+		return
 	end
+
+	enforceGuiLock()
+	forceHidden()
 end)
 
 --==================================================
@@ -124,92 +281,84 @@ local function sinkInput()
 	return Enum.ContextActionResult.Sink
 end
 
-local function lockInput()
-	ContextActionService:BindActionAtPriority(
-		INPUT_LOCK_NAME,
-		sinkInput,
-		false,
-		Enum.ContextActionPriority.High.Value,
+ContextActionService:BindActionAtPriority(
+	INPUT_LOCK_NAME,
+	sinkInput,
+	false,
+	Enum.ContextActionPriority.High.Value,
 
-		Enum.UserInputType.MouseButton1,
-		Enum.UserInputType.MouseButton2,
-		Enum.UserInputType.MouseButton3,
-		Enum.UserInputType.Touch,
+	Enum.UserInputType.MouseButton1,
+	Enum.UserInputType.MouseButton2,
+	Enum.UserInputType.MouseButton3,
+	Enum.UserInputType.Touch,
 
-		Enum.UserInputType.Gamepad1,
-		Enum.UserInputType.Gamepad2,
-		Enum.UserInputType.Gamepad3,
-		Enum.UserInputType.Gamepad4,
+	Enum.UserInputType.Gamepad1,
+	Enum.UserInputType.Gamepad2,
+	Enum.UserInputType.Gamepad3,
+	Enum.UserInputType.Gamepad4,
 
-		Enum.KeyCode.E,
-		Enum.KeyCode.F,
-		Enum.KeyCode.Q,
-		Enum.KeyCode.R,
-		Enum.KeyCode.T,
-		Enum.KeyCode.Y,
-		Enum.KeyCode.U,
-		Enum.KeyCode.I,
-		Enum.KeyCode.O,
-		Enum.KeyCode.P,
+	Enum.KeyCode.E,
+	Enum.KeyCode.F,
+	Enum.KeyCode.Q,
+	Enum.KeyCode.R,
+	Enum.KeyCode.T,
+	Enum.KeyCode.Y,
+	Enum.KeyCode.U,
+	Enum.KeyCode.I,
+	Enum.KeyCode.O,
+	Enum.KeyCode.P,
 
-		Enum.KeyCode.A,
-		Enum.KeyCode.S,
-		Enum.KeyCode.D,
-		Enum.KeyCode.G,
-		Enum.KeyCode.H,
-		Enum.KeyCode.J,
-		Enum.KeyCode.K,
-		Enum.KeyCode.L,
+	Enum.KeyCode.A,
+	Enum.KeyCode.S,
+	Enum.KeyCode.D,
+	Enum.KeyCode.G,
+	Enum.KeyCode.H,
+	Enum.KeyCode.J,
+	Enum.KeyCode.K,
+	Enum.KeyCode.L,
 
-		Enum.KeyCode.Z,
-		Enum.KeyCode.X,
-		Enum.KeyCode.C,
-		Enum.KeyCode.V,
-		Enum.KeyCode.B,
-		Enum.KeyCode.N,
-		Enum.KeyCode.M,
+	Enum.KeyCode.Z,
+	Enum.KeyCode.X,
+	Enum.KeyCode.C,
+	Enum.KeyCode.V,
+	Enum.KeyCode.B,
+	Enum.KeyCode.N,
+	Enum.KeyCode.M,
 
-		Enum.KeyCode.LeftShift,
-		Enum.KeyCode.RightShift,
-		Enum.KeyCode.LeftControl,
-		Enum.KeyCode.RightControl,
-		Enum.KeyCode.LeftAlt,
-		Enum.KeyCode.RightAlt,
+	Enum.KeyCode.LeftShift,
+	Enum.KeyCode.RightShift,
+	Enum.KeyCode.LeftControl,
+	Enum.KeyCode.RightControl,
+	Enum.KeyCode.LeftAlt,
+	Enum.KeyCode.RightAlt,
 
-		Enum.KeyCode.Tab,
-		Enum.KeyCode.Escape,
-		Enum.KeyCode.Backspace,
-		Enum.KeyCode.Delete,
-		Enum.KeyCode.Insert,
+	Enum.KeyCode.Tab,
+	Enum.KeyCode.Escape,
+	Enum.KeyCode.Backspace,
+	Enum.KeyCode.Delete,
+	Enum.KeyCode.Insert,
 
-		Enum.KeyCode.Home,
-		Enum.KeyCode.End,
-		Enum.KeyCode.PageUp,
-		Enum.KeyCode.PageDown,
+	Enum.KeyCode.Home,
+	Enum.KeyCode.End,
+	Enum.KeyCode.PageUp,
+	Enum.KeyCode.PageDown,
 
-		Enum.KeyCode.Up,
-		Enum.KeyCode.Down,
-		Enum.KeyCode.Left,
-		Enum.KeyCode.Right,
+	Enum.KeyCode.Up,
+	Enum.KeyCode.Down,
+	Enum.KeyCode.Left,
+	Enum.KeyCode.Right,
 
-		Enum.KeyCode.One,
-		Enum.KeyCode.Two,
-		Enum.KeyCode.Three,
-		Enum.KeyCode.Four,
-		Enum.KeyCode.Five,
-		Enum.KeyCode.Six,
-		Enum.KeyCode.Seven,
-		Enum.KeyCode.Eight,
-		Enum.KeyCode.Nine,
-		Enum.KeyCode.Zero
-	)
-end
-
-local function unlockInput()
-	ContextActionService:UnbindAction(INPUT_LOCK_NAME)
-end
-
-lockInput()
+	Enum.KeyCode.One,
+	Enum.KeyCode.Two,
+	Enum.KeyCode.Three,
+	Enum.KeyCode.Four,
+	Enum.KeyCode.Five,
+	Enum.KeyCode.Six,
+	Enum.KeyCode.Seven,
+	Enum.KeyCode.Eight,
+	Enum.KeyCode.Nine,
+	Enum.KeyCode.Zero
+)
 
 --==================================================
 -- AUDIO INITIAL STATE
@@ -285,6 +434,8 @@ end
 
 task.wait(0.5)
 
+fadeLayer1Out()
+
 say("Injecting the script.", 2)
 
 say("Initializing.", 1.5)
@@ -346,17 +497,15 @@ say("Initialization complete.", 2)
 
 say("This is a c9hzz mod.", 3)
 
-task.wait(0.5)
-
---==================================================
--- RESTORE INPUT AND GUI
---==================================================
-
+-- Stop forcing the hidden state before fading back in.
 interactionLocked = false
 
-if guiLockConnection then
-	guiLockConnection:Disconnect()
+if enforcementConnection then
+	enforcementConnection:Disconnect()
 end
 
-unlockInput()
+ContextActionService:UnbindAction(INPUT_LOCK_NAME)
+
 restoreGui()
+
+fadeLayer1In()
