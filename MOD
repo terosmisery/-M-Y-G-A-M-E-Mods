@@ -1,4 +1,6 @@
 local Players = game:GetService("Players")
+local ContextActionService = game:GetService("ContextActionService")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local pg = player:WaitForChild("PlayerGui")
@@ -45,57 +47,37 @@ if not characterVoice or not characterVoice:IsA("Sound") then
 end
 
 --==================================================
--- LOCK MAINUI BUTTONS
+-- BLOCK MOUSE / TOUCH INPUT
 --==================================================
 
-local lockedButtons = {}
-local lockedTextBoxes = {}
+local INPUT_LOCK_NAME = "C9HZZ_MainUI_InputLock"
+
+local function sinkInput()
+	return Enum.ContextActionResult.Sink
+end
 
 local function lockMainUI()
-	for _, obj in ipairs(mainUI:GetDescendants()) do
-		if obj:IsA("GuiButton") then
-			lockedButtons[obj] = {
-				Active = obj.Active,
-				Selectable = obj.Selectable,
-				AutoButtonColor = obj.AutoButtonColor
-			}
+	ContextActionService:BindActionAtPriority(
+		INPUT_LOCK_NAME,
+		sinkInput,
+		false,
+		Enum.ContextActionPriority.High.Value,
 
-			obj.Active = false
-			obj.Selectable = false
-			obj.AutoButtonColor = false
+		-- Mouse
+		Enum.UserInputType.MouseButton1,
+		Enum.UserInputType.MouseButton2,
+		Enum.UserInputType.MouseButton3,
 
-		elseif obj:IsA("TextBox") then
-			lockedTextBoxes[obj] = {
-				Active = obj.Active,
-				TextEditable = obj.TextEditable
-			}
-
-			obj.Active = false
-			obj.TextEditable = false
-		end
-	end
+		-- Touch
+		Enum.UserInputType.Touch
+	)
 end
 
 local function unlockMainUI()
-	for obj, state in pairs(lockedButtons) do
-		if obj and obj.Parent then
-			obj.Active = state.Active
-			obj.Selectable = state.Selectable
-			obj.AutoButtonColor = state.AutoButtonColor
-		end
-	end
-
-	for obj, state in pairs(lockedTextBoxes) do
-		if obj and obj.Parent then
-			obj.Active = state.Active
-			obj.TextEditable = state.TextEditable
-		end
-	end
-
-	table.clear(lockedButtons)
-	table.clear(lockedTextBoxes)
+	ContextActionService:UnbindAction(INPUT_LOCK_NAME)
 end
 
+-- Lock immediately when the script starts.
 lockMainUI()
 
 --==================================================
@@ -115,11 +97,12 @@ if level2.IsPlaying then
 end
 
 amb.Volume = 0
-level1.Volume = 0
-level2.Volume = 0
 
-level1.PlaybackSpeed = 0.55
+level1.Volume = 0
 level1.Looped = true
+level1.PlaybackSpeed = 1
+
+level2.Volume = 0
 
 --==================================================
 -- SPEECH FUNCTION
@@ -146,12 +129,13 @@ local function say(text, duration)
 					}
 				}
 			},
-			true,
+			true, -- Space / B / Touch can skip dialogue
 			duration,
 			characterVoice
 		)
 	end)
 
+	-- Make sure the voice stops after the dialogue ends.
 	if characterVoice.IsPlaying then
 		characterVoice:Stop()
 	end
@@ -183,12 +167,46 @@ say("Ambient audio is disabled.", 2)
 
 say("Starting Level 1 audio.", 2)
 
-level1.Volume = 1
-level1.PlaybackSpeed = 0.55
+-- Start Level 1 at normal speed and zero volume.
+level1.Volume = 0
+level1.PlaybackSpeed = 1
 level1.Looped = true
 level1:Play()
 
-say("Level 1 audio is now playing.", 2)
+say("Slowing Level 1 audio down to zero point five.", 2)
+
+-- Gradually slow from 1.0 to 0.5.
+local speedTween = TweenService:Create(
+	level1,
+	TweenInfo.new(
+		3,
+		Enum.EasingStyle.Sine,
+		Enum.EasingDirection.Out
+	),
+	{
+		PlaybackSpeed = 0.5
+	}
+)
+
+speedTween:Play()
+
+-- Gradually bring the music in at the same time.
+local volumeTween = TweenService:Create(
+	level1,
+	TweenInfo.new(
+		2,
+		Enum.EasingStyle.Linear
+	),
+	{
+		Volume = 1
+	}
+)
+
+volumeTween:Play()
+
+speedTween.Completed:Wait()
+
+say("Level 1 audio is now playing at zero point five speed.", 2)
 
 --==================================================
 -- LEVEL 2
@@ -210,7 +228,7 @@ say("This is a c9hzz mod.", 3)
 task.wait(0.5)
 
 --==================================================
--- RESTORE MAINUI
+-- RESTORE INPUT
 --==================================================
 
 unlockMainUI()
