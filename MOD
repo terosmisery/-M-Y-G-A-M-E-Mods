@@ -180,9 +180,9 @@ say("Level 2 audio is disabled.", 2)
 level2.Volume = 0
 level2:Stop()
 
-say("Setting up the interface.", 2)
-
 say("Initialization complete.", 2)
+
+say("This is a C9HZZ mod.", 2)
 
 --==================================================
 -- RESTORE GUI INTERACTION
